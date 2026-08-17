@@ -68,10 +68,8 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 		return err
 	}
 
-	var iteration = 0
-	// Limit the number of iterations to prevent infinite loops
-	for iteration < 10 {
-		iteration++
+	var sessionEstablished = false
+	for {
 		req, err := stream.Recv()
 		if err != nil {
 			return err
@@ -85,13 +83,12 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 		var response krb5.ChallengeResponse
 
 		if len(challenge.StepToken) > 0 {
-			outputToken, _, err := ctx.Step(challenge.StepToken)
+			response.StepToken, sessionEstablished, err = ctx.Step(challenge.StepToken)
 			if err != nil {
 				p.logger.Error("GSS step failed", "error", err)
 				return status.Errorf(codes.Internal, "GSS step failed: %v", err)
 			}
-			response.StepToken = outputToken
-		} else if len(challenge.WrappedNonce) > 0 {
+		} else if len(challenge.WrappedNonce) > 0 && sessionEstablished {
 			// Unwrap the challenge
 			unwrapped, err := ctx.Unwrap(challenge.WrappedNonce)
 			if err != nil {
@@ -128,9 +125,6 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 			return nil
 		}
 	}
-
-	p.logger.Error("Endless loop detected in attestation, canceling", "hostname", hostname)
-	return status.Error(codes.Internal, "Endless loop detected in attestation, canceling")
 }
 
 func (p *Plugin) SetLogger(logger hclog.Logger) {
