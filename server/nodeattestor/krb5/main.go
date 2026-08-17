@@ -34,6 +34,7 @@ type Plugin struct {
 	logger hclog.Logger
 
 	newClientContext func(targetName string, keytabPath ...string) (gss.GSSContext, error)
+	generateNonce    func() ([]byte, error)
 }
 
 type Config struct {
@@ -157,8 +158,9 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 	}
 
 	// GSS session established. We generate a random nonce and do a wrap/unwrap/wrap round trip
-	randomNonce := make([]byte, 32)
-	if _, err := rand.Read(randomNonce); err != nil {
+	randomNonce, err := p.generateNonce()
+
+	if err != nil {
 		return status.Errorf(codes.Internal, "unable to generate random challenge: %v", err)
 	}
 
@@ -243,9 +245,18 @@ func (p *Plugin) getConfig() (*Config, error) {
 	return p.config, nil
 }
 
+func generateNonce() ([]byte, error) {
+	nonce := make([]byte, 32)
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	return nonce, nil
+}
+
 func New() *Plugin {
 	return &Plugin{
 		newClientContext: gss.NewClientContext,
+		generateNonce:    generateNonce,
 	}
 }
 
