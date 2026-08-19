@@ -31,6 +31,31 @@ If configuration is needed it's documentated in the documentation linked below.
 
 ## Algorithm
 
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant S as Server
+
+    Note over A: FQDN: agent.example.org
+    A->>S: 1. Send FQDN
+
+    Note over S: 2. Initiate HOST@agent.example.org
+
+    S->>A: Token
+    A->>S: Token
+    Note over A,S: Both parties establish a GSS context
+
+    Note over S: 3. Create Nonce
+
+    S->>A: 4. Send KRB5-Wrapped Nonce (Encrypted for Agent) 
+    Note over A: Unwrap Nonce
+    Note over A: Re-wrap Nonce
+    A->>S: 5. Re-wrapped Nonce (Encrypted for Server)
+    Note over S: Unwrap + Compare Nonce
+
+    S->>A: 6. Attest SPIFFE ID: spiffe://<trustdomain>/spire/agent/krb5/agent.example.org
+```
+
 1. The agent sends its FQDN to the server.
 1. The server establishes a Kerberos context using HOST/agentfqdn
 1. The server creates a Nonce and wraps it using the Kerberos session keys.
