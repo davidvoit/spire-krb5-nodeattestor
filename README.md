@@ -51,7 +51,8 @@ sequenceDiagram
     Note over A: Unwrap Nonce
     Note over A: Re-wrap Nonce
     A->>S: 5. Re-wrapped Nonce (Encrypted for Server)
-    Note over S: Unwrap + Compare Nonce
+    Note over S: Unwrap Nonce
+    Note over S: Compare Nonce
 
     S->>A: 6. Attest SPIFFE ID: spiffe://<trustdomain>/spire/agent/krb5/agent.example.org
 ```
