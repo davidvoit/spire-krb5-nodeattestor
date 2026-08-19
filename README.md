@@ -60,8 +60,8 @@ sequenceDiagram
 1. The server establishes a Kerberos context using HOST/agentfqdn
 1. The server creates a Nonce and wraps it using the Kerberos session keys.
 1. The server sends the wrapped Nonce to the agent.
-1. The agent unwraps the Nonce and re-wraps sends it back to the server.
-1. If the Nonce matches the server creates a SPIFFE ID for the fqdn
+1. The agent unwraps the Nonce and re-wraps it, sends it back to the server.
+1. If the Nonce matches: The server creates a SPIFFE ID for the fqdn
 
 This works as the the server is in this model not something a traditional kerberos server would be,
 but the server takes the role of a kerberos client - an initiator.
