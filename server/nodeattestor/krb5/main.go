@@ -69,11 +69,6 @@ func (p *Plugin) Configure(_ context.Context, req *configv1.ConfigureRequest) (*
 }
 
 func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
-	req, err := stream.Recv()
-	if err != nil {
-		return err
-	}
-
 	config, err := p.getConfig()
 	if err != nil {
 		return err
@@ -81,6 +76,11 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 
 	if config == nil {
 		return status.Error(codes.FailedPrecondition, "not configured")
+	}
+
+	req, err := stream.Recv()
+	if err != nil {
+		return err
 	}
 
 	payload := req.GetPayload()
@@ -97,6 +97,7 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 		return status.Error(codes.InvalidArgument, "missing host in attestation data")
 	}
 
+	// Normalize hostname. Kerberos principals are not case-sensitive. But the path of the Spiffe-id (SPEC 2.4) *is* case-sensitive
 	hostname := strings.ToLower(attestationData.HostName)
 
 	p.logger.Info("Received krb5 node attestation request", "hostname", hostname)
