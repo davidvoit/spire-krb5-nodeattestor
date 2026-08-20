@@ -6,8 +6,12 @@ import (
 	"strings"
 )
 
-func hasPrefixCaseInsensitive(s, prefix string) bool {
-	return strings.HasPrefix(strings.ToLower(s), strings.ToLower(prefix))
+func isFirstLabelShortName(fqdn string, shortName string) bool {
+	if firstLabel, _, ok := strings.Cut(fqdn, "."); ok {
+		return strings.EqualFold(firstLabel, shortName)
+	}
+
+	return false
 }
 
 func GetFQDN() (string, error) {
@@ -24,7 +28,7 @@ func GetFQDN() (string, error) {
 	// resolver is configured to search domains.
 	if cname, err := net.LookupCNAME(hostname); err == nil {
 		cname = strings.TrimSuffix(cname, ".")
-		if strings.Contains(cname, ".") {
+		if isFirstLabelShortName(cname, hostname) {
 			return cname, nil
 		}
 	}
@@ -37,7 +41,7 @@ func GetFQDN() (string, error) {
 			if err == nil {
 				for _, name := range names {
 					name = strings.TrimSuffix(name, ".")
-					if strings.Contains(name, ".") && hasPrefixCaseInsensitive(name, hostname) {
+					if isFirstLabelShortName(name, hostname) {
 						return name, nil
 					}
 				}
@@ -65,7 +69,7 @@ func GetFQDN() (string, error) {
 					if err == nil {
 						for _, name := range names {
 							name = strings.TrimSuffix(name, ".")
-							if strings.Contains(name, ".") && hasPrefixCaseInsensitive(name, hostname) {
+							if isFirstLabelShortName(name, hostname) {
 								return name, nil
 							}
 						}
