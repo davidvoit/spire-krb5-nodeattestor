@@ -23,7 +23,14 @@ func newClientContext(targetName, keytabPath string) (GSSContext, error) {
 	if keytabPath != "" {
 		if p, ok := gssProvider.(gssapi.ProviderExtCredStore); ok {
 			var err error
-			cred, err = p.AcquireCredentialFrom(nil, []gssapi.GssMech{gssapi.GSS_MECH_KRB5}, gssapi.CredUsageInitiateOnly, nil, gssapi.WithCredStoreClientKeytab(keytabPath))
+			cred, err = p.AcquireCredentialFrom(
+				nil,
+				[]gssapi.GssMech{gssapi.GSS_MECH_KRB5},
+				gssapi.CredUsageInitiateOnly,
+				nil,
+				gssapi.WithCredStoreClientKeytab(keytabPath))
+			// Keytab had no valid credentials at all - this should not happen.
+			// We don't fail here, maybe in ccache or in something like gssproxy valid credentials are provided
 			if err != nil {
 				cred = nil
 			}
@@ -39,7 +46,12 @@ func newClientContext(targetName, keytabPath string) (GSSContext, error) {
 	}
 	defer func() { _ = name.Release() }()
 
-	flags := gssapi.ContextFlagMutual | gssapi.ContextFlagConf | gssapi.ContextFlagInteg | gssapi.ContextFlagReplay | gssapi.ContextFlagSequence
+	flags := gssapi.ContextFlagMutual |
+		gssapi.ContextFlagConf |
+		gssapi.ContextFlagInteg |
+		gssapi.ContextFlagReplay |
+		gssapi.ContextFlagSequence
+
 	ctx, err := gssProvider.InitSecContext(name,
 		gssapi.WithInitiatorFlags(flags),
 		gssapi.WithInitiatorCredential(cred),
@@ -64,7 +76,13 @@ func newServerContext(keytabPath string) (GSSContext, error) {
 	if keytabPath != "" {
 		if p, ok := gssProvider.(gssapi.ProviderExtCredStore); ok {
 			var err error
-			cred, err = p.AcquireCredentialFrom(nil, []gssapi.GssMech{gssapi.GSS_MECH_KRB5}, gssapi.CredUsageAcceptOnly, nil, gssapi.WithCredStoreServerKeytab(keytabPath))
+			cred, err = p.AcquireCredentialFrom(
+				nil,
+				[]gssapi.GssMech{gssapi.GSS_MECH_KRB5},
+				gssapi.CredUsageAcceptOnly,
+				nil,
+				gssapi.WithCredStoreServerKeytab(keytabPath))
+			// We were not able to get credentials from keytab. Fallback to defaults.
 			if err != nil {
 				cred = nil
 			}
