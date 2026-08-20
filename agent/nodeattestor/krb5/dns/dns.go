@@ -53,21 +53,16 @@ func GetFQDN() (string, error) {
 	// This would mean a very misconfigured/autoconfigurated system, but this happened on a test system
 	if ifaceAddrs, err := net.InterfaceAddrs(); err == nil {
 		for _, addr := range ifaceAddrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP.IsLoopback() || ipNet.IP == nil {
+				continue
 			}
-			if ip != nil && !ip.IsLoopback() {
-				names, err := net.LookupAddr(ip.String())
-				if err == nil {
-					for _, name := range names {
-						name = strings.TrimSuffix(name, ".")
-						if isFirstLabelShortName(name, hostname) {
-							return name, nil
-						}
+			names, err := net.LookupAddr(ipNet.IP.String())
+			if err == nil {
+				for _, name := range names {
+					name = strings.TrimSuffix(name, ".")
+					if isFirstLabelShortName(name, hostname) {
+						return name, nil
 					}
 				}
 			}
