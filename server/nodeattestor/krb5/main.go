@@ -240,6 +240,7 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 				SelectorValues: []string{
 					fmt.Sprintf("hostname:%s", hostname),
 				},
+				CanReattest: true,
 			},
 		},
 	})
