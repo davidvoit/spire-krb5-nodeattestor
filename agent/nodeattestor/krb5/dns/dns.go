@@ -50,28 +50,23 @@ func GetFQDN() (string, error) {
 	}
 
 	// 3. Try reverse lookup of all interface IPs.
-	if ifaces, err := net.Interfaces(); err == nil {
-		for _, iface := range ifaces {
-			addrs, err := iface.Addrs()
-			if err != nil {
-				continue
+	// This would mean a very misconfigured/autoconfigurated system, but this happened on a test system
+	if ifaceAddrs, err := net.InterfaceAddrs(); err == nil {
+		for _, addr := range ifaceAddrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
 			}
-			for _, addr := range addrs {
-				var ip net.IP
-				switch v := addr.(type) {
-				case *net.IPNet:
-					ip = v.IP
-				case *net.IPAddr:
-					ip = v.IP
-				}
-				if ip != nil && !ip.IsLoopback() {
-					names, err := net.LookupAddr(ip.String())
-					if err == nil {
-						for _, name := range names {
-							name = strings.TrimSuffix(name, ".")
-							if isFirstLabelShortName(name, hostname) {
-								return name, nil
-							}
+			if ip != nil && !ip.IsLoopback() {
+				names, err := net.LookupAddr(ip.String())
+				if err == nil {
+					for _, name := range names {
+						name = strings.TrimSuffix(name, ".")
+						if isFirstLabelShortName(name, hostname) {
+							return name, nil
 						}
 					}
 				}
