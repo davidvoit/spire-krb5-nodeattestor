@@ -77,6 +77,7 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 
 		challenge := new(krb5.Challenge)
 		if err := json.Unmarshal(req.Challenge, challenge); err != nil {
+			p.logger.Error("unable to unmarshal challenge", "error", err, "challenge", req.Challenge)
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal challenge: %v", err)
 		}
 
@@ -88,6 +89,7 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 				p.logger.Error("GSS step failed", "error", err)
 				return status.Errorf(codes.Internal, "GSS step failed: %v", err)
 			}
+			p.logger.Debug("GSS step", "step_token", challenge.StepToken, "response_step_token", response.StepToken, "session_established", sessionEstablished)
 		} else if len(challenge.WrappedNonce) > 0 && sessionEstablished {
 			// Unwrap the challenge
 			unwrapped, err := ctx.Unwrap(challenge.WrappedNonce)
@@ -95,19 +97,24 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 				p.logger.Error("GSS unwrap failed", "error", err)
 				return status.Errorf(codes.Internal, "GSS unwrap failed: %v", err)
 			}
+			p.logger.Debug("GSS unwrap", "wrapped", challenge.WrappedNonce, "unwrapped", unwrapped)
+
 			// Wrap it back
 			wrapped, err := ctx.Wrap(unwrapped)
 			if err != nil {
 				p.logger.Error("GSS wrap failed", "error", err)
 				return status.Errorf(codes.Internal, "GSS wrap failed: %v", err)
 			}
+			p.logger.Debug("GSS re-wrap", "unwrapped", unwrapped, "re-wrapped", wrapped)
 			response.WrappedNonce = wrapped
 		} else {
+			p.logger.Error("Invalid challenge", "challenge", challenge)
 			return status.Error(codes.InvalidArgument, "invalid challenge")
 		}
 
 		respBytes, err := json.Marshal(response)
 		if err != nil {
+			p.logger.Error("Unable to marshal response", "error", err, "response", response)
 			return status.Errorf(codes.Internal, "unable to marshal challenge response: %v", err)
 		}
 
@@ -116,6 +123,7 @@ func (p *Plugin) AidAttestation(stream nodeattestorv1.NodeAttestor_AidAttestatio
 				ChallengeResponse: respBytes,
 			},
 		}); err != nil {
+			p.logger.Error("Unable to send challenge response", "error", err)
 			return err
 		}
 

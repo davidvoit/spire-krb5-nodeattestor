@@ -80,16 +80,19 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 
 	req, err := stream.Recv()
 	if err != nil {
+		p.logger.Error("Unable to receive attestation request", "error", err)
 		return err
 	}
 
 	payload := req.GetPayload()
 	if payload == nil {
+		p.logger.Error("missing attestation payload")
 		return status.Error(codes.InvalidArgument, "missing attestation payload")
 	}
 
 	attestationData := new(krb5.AttestationData)
 	if err := json.Unmarshal(payload, attestationData); err != nil {
+		p.logger.Error("unable to unmarshal attestation data", "err", err, "payload", payload)
 		return status.Errorf(codes.InvalidArgument, "unable to unmarshal attestation data: %v", err)
 	}
 
@@ -122,6 +125,8 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 			return status.Errorf(codes.Internal, "GSS step failed: %v", err)
 		}
 
+		p.logger.Debug("GSS step", "input_token", inputToken, "output_token", outputToken, "done", done)
+
 		if done && len(outputToken) == 0 {
 			break
 		}
@@ -131,6 +136,7 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 		}
 		challengeBytes, err := json.Marshal(challenge)
 		if err != nil {
+			p.logger.Error("unable to marshal challenge", "error", err, "challenge", challenge)
 			return status.Errorf(codes.Internal, "unable to marshal challenge: %v", err)
 		}
 
@@ -139,6 +145,7 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 				Challenge: challengeBytes,
 			},
 		}); err != nil {
+			p.logger.Error("unable to send challenge", "error", err)
 			return err
 		}
 
@@ -153,6 +160,8 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 
 		challengeResp := new(krb5.ChallengeResponse)
 		if err := json.Unmarshal(resp.GetChallengeResponse(), challengeResp); err != nil {
+			p.logger.Error("Unable to unmarshal challenge response", "error", err,
+				"challenge_response", resp.GetChallengeResponse())
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal challenge response: %v", err)
 		}
 		inputToken = challengeResp.StepToken
@@ -160,15 +169,19 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 
 	// GSS session established. We generate a random nonce and do a wrap/unwrap/wrap round trip
 	randomNonce, err := p.generateNonce()
+	p.logger.Debug("Generated random nonce", "random_nonce", randomNonce)
 
 	if err != nil {
+		p.logger.Error("unable to generate random challenge", "error", err)
 		return status.Errorf(codes.Internal, "unable to generate random challenge: %v", err)
 	}
 
 	wrappedNonce, err := ctx.Wrap(randomNonce)
 	if err != nil {
+		p.logger.Error("unable to wrap challenge", "error", err)
 		return status.Errorf(codes.Internal, "unable to wrap challenge: %v", err)
 	}
+	p.logger.Debug("Wrapped nonce", "wrapped_nonce", wrappedNonce)
 
 	challenge := krb5.Challenge{
 		WrappedNonce: wrappedNonce,
@@ -176,6 +189,7 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 
 	challengeBytes, err := json.Marshal(challenge)
 	if err != nil {
+		p.logger.Error("Unable to marshal challenge", "error", err, "challenge", challenge)
 		return status.Errorf(codes.Internal, "unable to marshal challenge: %v", err)
 	}
 
@@ -184,16 +198,20 @@ func (p *Plugin) Attest(stream nodeattestorv1.NodeAttestor_AttestServer) error {
 			Challenge: challengeBytes,
 		},
 	}); err != nil {
+		p.logger.Error("Unable to send challenge", "error", err)
 		return err
 	}
 
 	resp, err := stream.Recv()
 	if err != nil {
+		p.logger.Error("Unable to receive challenge response", "error", err)
 		return err
 	}
 
 	challengeResp := new(krb5.ChallengeResponse)
 	if err := json.Unmarshal(resp.GetChallengeResponse(), challengeResp); err != nil {
+		p.logger.Error("Unable to unmarshal challenge response", "error", err,
+			"challenge_response", resp.GetChallengeResponse())
 		return status.Errorf(codes.InvalidArgument, "unable to unmarshal challenge response: %v", err)
 	}
 
