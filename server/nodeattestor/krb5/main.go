@@ -38,7 +38,7 @@ type Plugin struct {
 }
 
 type Config struct {
-	KeytabPath string
+	KeytabPath string `hcl:"keytab_path"`
 }
 
 func MakeAgentID(td spiffeid.TrustDomain, hostName string) (spiffeid.ID, error) {
