@@ -12,6 +12,11 @@ import (
 
 var gssProvider = gssapi.MustNewProvider("github.com/golang-auth/go-gssapi-c")
 
+// If we are using a keytab, MIT krb5 will always look into the default ccache first.
+// An entry which is no longer valid would still be used and the keytab will be ignored.
+// For the keytab cases we use a in-memory ccache as a workaround.
+const CCACHE_NAME = "MEMORY:krb5-nodeattestor"
+
 type posixGSSContext struct {
 	ctx        gssapi.SecContext
 	cred       gssapi.Credential
@@ -28,7 +33,8 @@ func newClientContext(targetName, keytabPath string) (GSSContext, error) {
 				[]gssapi.GssMech{gssapi.GSS_MECH_KRB5},
 				gssapi.CredUsageInitiateOnly,
 				nil,
-				gssapi.WithCredStoreClientKeytab(keytabPath))
+				gssapi.WithCredStoreClientKeytab(keytabPath),
+				gssapi.WithCredStoreCCache(CCACHE_NAME))
 			// Keytab had no valid credentials at all - this should not happen.
 			// We don't fail here, maybe in ccache or in something like gssproxy valid credentials are provided
 			if err != nil {
@@ -81,7 +87,8 @@ func newServerContext(keytabPath string) (GSSContext, error) {
 				[]gssapi.GssMech{gssapi.GSS_MECH_KRB5},
 				gssapi.CredUsageAcceptOnly,
 				nil,
-				gssapi.WithCredStoreServerKeytab(keytabPath))
+				gssapi.WithCredStoreServerKeytab(keytabPath),
+				gssapi.WithCredStoreCCache(CCACHE_NAME))
 			// We were not able to get credentials from keytab. Fallback to defaults.
 			if err != nil {
 				cred = nil
